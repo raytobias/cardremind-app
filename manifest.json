@@ -1,7 +1,7 @@
 {
   "name": "CardRemind",
   "short_name": "CardRemind",
-  "start_url": "./cardremind.html",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#F6F3EC",
