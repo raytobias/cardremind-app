@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>CardRemind</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1B2A4A">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1B2A4A; --ink-soft:#48577A;
+    --paper:#F6F3EC; --card:#FFFFFF;
+    --line:#E4DFD2;
+    --red:#B4392A; --red-bg:#F7E7E3;
+    --amber:#A66A06; --amber-bg:#FAEEDA;
+    --green:#2F6B4F; --green-bg:#E4F0E8;
+    --gray:#8B887E;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:'Inter',system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:100px;
+  }
+  .wrap{max-width:520px; margin:0 auto; padding:20px 16px 0;}
+  header{display:flex; align-items:baseline; justify-content:space-between; margin-bottom:18px;}
+  h1{font-family:'Fraunces',serif; font-weight:600; font-size:26px; margin:0; letter-spacing:-0.01em;}
+  .sub{font-size:12px; color:var(--ink-soft); margin-top:2px;}
+  .summary{
+    background:var(--ink); color:#F6F3EC; border-radius:16px; padding:18px 20px;
+    display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;
+  }
+  .summary .num{font-family:'Fraunces',serif; font-size:28px; font-weight:600;}
+  .summary .lbl{font-size:11px; opacity:0.7; text-transform:uppercase; letter-spacing:0.06em; margin-top:2px;}
+  .cards{display:flex; flex-direction:column; gap:12px;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:16px; position:relative; overflow:hidden;
+  }
+  .card.paid{opacity:0.55;}
+  .card-top{display:flex; align-items:center; gap:14px;}
+  .ring{
+    width:52px; height:52px; border-radius:50%; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; flex-direction:column;
+    font-family:'Fraunces',serif; font-weight:600; border:3px solid;
+  }
+  .ring .n{font-size:17px; line-height:1;}
+  .ring .u{font-size:8px; opacity:0.7; text-transform:uppercase;}
+  .r-overdue{border-color:var(--red); color:var(--red); background:var(--red-bg);}
+  .r-soon{border-color:var(--amber); color:var(--amber); background:var(--amber-bg);}
+  .r-ok{border-color:var(--gray); color:var(--gray); background:#F1EFE8;}
+  .r-paid{border-color:var(--green); color:var(--green); background:var(--green-bg);}
+  .card-info{flex:1; min-width:0;}
+  .card-name{font-weight:600; font-size:15px;}
+  .card-meta{font-size:12px; color:var(--ink-soft); margin-top:2px;}
+  .card-amt{text-align:right;}
+  .card-amt .big{font-family:'Fraunces',serif; font-weight:600; font-size:16px;}
+  .card-amt .small{font-size:11px; color:var(--ink-soft);}
+  .status-pill{
+    display:inline-block; font-size:10px; font-weight:600; padding:2px 8px; border-radius:20px;
+    text-transform:uppercase; letter-spacing:0.03em; margin-top:6px;
+  }
+  .p-overdue{background:var(--red-bg); color:var(--red);}
+  .p-soon{background:var(--amber-bg); color:var(--amber);}
+  .p-ok{background:#F1EFE8; color:var(--gray);}
+  .p-paid{background:var(--green-bg); color:var(--green);}
+  .actions{display:flex; gap:8px; margin-top:12px; padding-top:12px; border-top:1px solid var(--line);}
+  .actions button{
+    flex:1; border:none; background:none; font-family:'Inter',sans-serif; font-size:12px;
+    font-weight:600; padding:8px 4px; border-radius:8px; color:var(--ink-soft); cursor:pointer;
+  }
+  .actions button:active{background:var(--paper);}
+  .actions .pay{color:var(--green);}
+  .actions .cal{color:var(--ink);}
+  .actions .del{color:var(--red);}
+  .fab{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+    background:var(--ink); color:#fff; border:none; border-radius:30px;
+    padding:14px 26px; font-family:'Inter',sans-serif; font-weight:600; font-size:14px;
+    box-shadow:0 6px 18px rgba(27,42,74,0.3); cursor:pointer; max-width:488px; width:calc(100% - 32px);
+  }
+  .overlay{
+    display:none; position:fixed; inset:0; background:rgba(27,42,74,0.45);
+    align-items:flex-end; justify-content:center; z-index:10;
+  }
+  .overlay.show{display:flex;}
+  .sheet{
+    background:var(--paper); width:100%; max-width:520px; border-radius:20px 20px 0 0;
+    padding:20px 20px 28px; max-height:88vh; overflow-y:auto;
+  }
+  .sheet h2{font-family:'Fraunces',serif; font-size:20px; margin:0 0 16px;}
+  .field{margin-bottom:12px;}
+  .field label{display:block; font-size:11px; font-weight:600; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:5px;}
+  .field input{
+    width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:10px;
+    font-family:'Inter',sans-serif; font-size:15px; background:#fff; color:var(--ink);
+  }
+  .row2{display:flex; gap:10px;}
+  .row2 .field{flex:1;}
+  .sheet-actions{display:flex; gap:10px; margin-top:16px;}
+  .sheet-actions button{
+    flex:1; padding:13px; border-radius:10px; border:none; font-weight:600; font-size:14px; cursor:pointer;
+  }
+  .btn-cancel{background:var(--line); color:var(--ink-soft);}
+  .btn-save{background:var(--ink); color:#fff;}
+  .empty{text-align:center; padding:60px 20px; color:var(--ink-soft);}
+  .empty .em-title{font-family:'Fraunces',serif; font-size:18px; color:var(--ink); margin-bottom:6px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>CardRemind</h1>
+      <div class="sub" id="today-label"></div>
+    </div>
+  </header>
+
+  <div class="summary">
+    <div>
+      <div class="num" id="sum-unpaid">0</div>
+      <div class="lbl">Belum lunas</div>
+    </div>
+    <div>
+      <div class="num" id="sum-total">Rp0</div>
+      <div class="lbl">Total tagihan</div>
+    </div>
+  </div>
+
+  <div class="cards" id="cards-list"></div>
+  <div class="empty" id="empty-state" style="display:none;">
+    <div class="em-title">Belum ada kartu</div>
+    <div>Tap tombol di bawah untuk tambah kartu pertama Anda.</div>
+  </div>
+</div>
+
+<button class="fab" onclick="openSheet()">+ Tambah kartu</button>
+
+<div class="overlay" id="overlay">
+  <div class="sheet">
+    <h2 id="sheet-title">Tambah kartu</h2>
+    <div class="field">
+      <label>Nama kartu / bank</label>
+      <input type="text" id="f-name" placeholder="misal: BCA Everyday Card">
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>Tanggal jatuh tempo</label>
+        <input type="number" id="f-dueday" min="1" max="31" placeholder="15">
+      </div>
+      <div class="field">
+        <label>Jumlah tagihan (Rp)</label>
+        <input type="number" id="f-bill" placeholder="2500000">
+      </div>
+    </div>
+    <div class="field">
+      <label>Minimum pembayaran (Rp)</label>
+      <input type="number" id="f-min" placeholder="250000">
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" onclick="closeSheet()">Batal</button>
+      <button class="btn-save" onclick="saveCard()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="pay-overlay">
+  <div class="sheet">
+    <h2>Catat pembayaran</h2>
+    <div class="field">
+      <label>Jumlah dibayar (Rp)</label>
+      <input type="number" id="pay-amount" placeholder="500000">
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" onclick="closePayOverlay()">Batal</button>
+      <button class="btn-save" onclick="submitPayment()">Catat</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let cards = [];
+let editingPayId = null;
+
+function fmt(n){
+  return 'Rp' + Math.round(n).toLocaleString('id-ID');
+}
+
+async function loadCards(){
+  try{
+    const res = await window.storage.get('cards', false);
+    cards = res ? JSON.parse(res.value) : [];
+  }catch(e){
+    cards = [];
+  }
+  render();
+}
+
+async function persist(){
+  try{
+    await window.storage.set('cards', JSON.stringify(cards), false);
+  }catch(e){
+    console.error('gagal menyimpan', e);
+  }
+}
+
+function daysUntilDue(dueDay){
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth();
+  let due = new Date(y, m, dueDay);
+  if(due < new Date(y, m, now.getDate())){
+    due = new Date(y, m+1, dueDay);
+  }
+  const diff = Math.ceil((due - new Date(y, m, now.getDate())) / (1000*60*60*24));
+  return {due, diff};
+}
+
+function currentCycleKey(){
+  const now = new Date();
+  return now.getFullYear() + '-' + (now.getMonth()+1);
+}
+
+function paidAmount(card){
+  return (card.payments || []).reduce((s,p)=>s+p.amount, 0);
+}
+
+function isPaidThisCycle(card){
+  return paidAmount(card) >= card.billAmount && card.billAmount > 0;
+}
+
+function render(){
+  document.getElementById('today-label').textContent = new Date().toLocaleDateString('id-ID', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+
+  const list = document.getElementById('cards-list');
+  const empty = document.getElementById('empty-state');
+  list.innerHTML = '';
+
+  if(cards.length === 0){
+    empty.style.display = 'block';
+  } else {
+    empty.style.display = 'none';
+  }
+
+  let unpaidCount = 0, totalUnpaid = 0;
+
+  const sorted = [...cards].sort((a,b)=>{
+    const da = daysUntilDue(a.dueDay).diff, db = daysUntilDue(b.dueDay).diff;
+    return da - db;
+  });
+
+  sorted.forEach(card=>{
+    const {diff} = daysUntilDue(card.dueDay);
+    const paid = isPaidThisCycle(card);
+    const pd = paidAmount(card);
+    const remaining = Math.max(card.billAmount - pd, 0);
+
+    if(!paid){ unpaidCount++; totalUnpaid += remaining; }
+
+    let ringClass, pillClass, pillText;
+    if(paid){
+      ringClass='r-paid'; pillClass='p-paid'; pillText='Lunas';
+    } else if(diff <= 0){
+      ringClass='r-overdue'; pillClass='p-overdue'; pillText='Lewat jatuh tempo';
+    } else if(diff <= 3){
+      ringClass='r-soon'; pillClass='p-soon'; pillText='H-'+diff;
+    } else {
+      ringClass='r-ok'; pillClass='p-ok'; pillText=diff+' hari lagi';
+    }
+
+    const div = document.createElement('div');
+    div.className = 'card' + (paid ? ' paid' : '');
+    div.innerHTML = `
+      <div class="card-top">
+        <div class="ring ${ringClass}">
+          <div class="n">${paid ? '✓' : diff}</div>
+          <div class="u">${paid ? '' : 'hari'}</div>
+        </div>
+        <div class="card-info">
+          <div class="card-name">${card.name}</div>
+          <div class="card-meta">Jatuh tempo tgl ${card.dueDay} · min ${fmt(card.minAmount||0)}</div>
+          <span class="status-pill ${pillClass}">${pillText}</span>
+        </div>
+        <div class="card-amt">
+          <div class="big">${fmt(remaining)}</div>
+          <div class="small">${pd>0 ? 'dibayar '+fmt(pd) : 'dari '+fmt(card.billAmount)}</div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="pay" onclick="openPayOverlay('${card.id}')">Catat bayar</button>
+        <button class="cal" onclick="addToCalendar('${card.id}')">Kalender</button>
+        <button class="del" onclick="deleteCard('${card.id}')">Hapus</button>
+      </div>
+    `;
+    list.appendChild(div);
+  });
+
+  document.getElementById('sum-unpaid').textContent = unpaidCount;
+  document.getElementById('sum-total').textContent = fmt(totalUnpaid);
+}
+
+function openSheet(){
+  document.getElementById('f-name').value='';
+  document.getElementById('f-dueday').value='';
+  document.getElementById('f-bill').value='';
+  document.getElementById('f-min').value='';
+  document.getElementById('overlay').classList.add('show');
+}
+function closeSheet(){
+  document.getElementById('overlay').classList.remove('show');
+}
+
+async function saveCard(){
+  const name = document.getElementById('f-name').value.trim();
+  const dueDay = parseInt(document.getElementById('f-dueday').value);
+  const bill = parseFloat(document.getElementById('f-bill').value) || 0;
+  const min = parseFloat(document.getElementById('f-min').value) || 0;
+
+  if(!name || !dueDay || dueDay < 1 || dueDay > 31){
+    alert('Isi nama kartu dan tanggal jatuh tempo (1-31) dulu ya.');
+    return;
+  }
+
+  cards.push({
+    id: Date.now().toString(),
+    name, dueDay, billAmount: bill, minAmount: min,
+    payments: []
+  });
+  await persist();
+  closeSheet();
+  render();
+}
+
+async function deleteCard(id){
+  if(!confirm('Hapus kartu ini?')) return;
+  cards = cards.filter(c=>c.id!==id);
+  await persist();
+  render();
+}
+
+function openPayOverlay(id){
+  editingPayId = id;
+  document.getElementById('pay-amount').value='';
+  document.getElementById('pay-overlay').classList.add('show');
+}
+function closePayOverlay(){
+  document.getElementById('pay-overlay').classList.remove('show');
+  editingPayId = null;
+}
+async function submitPayment(){
+  const amt = parseFloat(document.getElementById('pay-amount').value);
+  if(!amt || amt <= 0){ alert('Masukkan jumlah pembayaran.'); return; }
+  const card = cards.find(c=>c.id===editingPayId);
+  if(card){
+    card.payments = card.payments || [];
+    card.payments.push({date: new Date().toISOString(), amount: amt});
+    await persist();
+  }
+  closePayOverlay();
+  render();
+}
+
+function addToCalendar(id){
+  const card = cards.find(c=>c.id===id);
+  if(!card) return;
+  const {due} = daysUntilDue(card.dueDay);
+  const dateStr = due.toISOString().slice(0,10).replace(/-/g,'');
+  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent('Bayar tagihan '+card.name)}&dates=${dateStr}/${dateStr}&recur=RRULE:FREQ=MONTHLY&details=${encodeURIComponent('Jatuh tempo tanggal '+card.dueDay+', minimum '+fmt(card.minAmount||0))}`;
+  window.open(url, '_blank');
+}
+
+loadCards();
+
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(function(){});
+}
+</script>
+</body>
+</html>
