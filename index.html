@@ -1,3 +1,4 @@
+html
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -193,8 +194,8 @@ function fmt(n){
 
 async function loadCards(){
   try{
-    const res = await window.storage.get('cards', false);
-    cards = res ? JSON.parse(res.value) : [];
+    const raw = localStorage.getItem('cardremind_cards_v1');
+    cards = raw ? JSON.parse(raw) : [];
   }catch(e){
     cards = [];
   }
@@ -203,7 +204,7 @@ async function loadCards(){
 
 async function persist(){
   try{
-    await window.storage.set('cards', JSON.stringify(cards), false);
+    localStorage.setItem('cardremind_cards_v1', JSON.stringify(cards));
   }catch(e){
     console.error('gagal menyimpan', e);
   }
@@ -211,12 +212,10 @@ async function persist(){
 
 function daysUntilDue(dueDay){
   const now = new Date();
-  const y = now.getFullYear(), m = now.getMonth();
-  let due = new Date(y, m, dueDay);
-  if(due < new Date(y, m, now.getDate())){
-    due = new Date(y, m+1, dueDay);
-  }
-  const diff = Math.ceil((due - new Date(y, m, now.getDate())) / (1000*60*60*24));
+  const y = now.getFullYear(), m = now.getMonth(), d = now.getDate();
+  const due = new Date(y, m, dueDay);
+  const today = new Date(y, m, d);
+  const diff = Math.round((due - today) / (1000*60*60*24));
   return {due, diff};
 }
 
@@ -261,15 +260,17 @@ function render(){
 
     if(!paid){ unpaidCount++; totalUnpaid += remaining; }
 
-    let ringClass, pillClass, pillText;
+    let ringClass, pillClass, pillText, ringNum, ringUnit;
     if(paid){
-      ringClass='r-paid'; pillClass='p-paid'; pillText='Lunas';
-    } else if(diff <= 0){
-      ringClass='r-overdue'; pillClass='p-overdue'; pillText='Lewat jatuh tempo';
+      ringClass='r-paid'; pillClass='p-paid'; pillText='Lunas'; ringNum='✓'; ringUnit='';
+    } else if(diff < 0){
+      ringClass='r-overdue'; pillClass='p-overdue'; pillText='Terlambat '+Math.abs(diff)+' hari'; ringNum=Math.abs(diff); ringUnit='telat';
+    } else if(diff === 0){
+      ringClass='r-overdue'; pillClass='p-overdue'; pillText='Jatuh tempo hari ini'; ringNum=0; ringUnit='hari ini';
     } else if(diff <= 3){
-      ringClass='r-soon'; pillClass='p-soon'; pillText='H-'+diff;
+      ringClass='r-soon'; pillClass='p-soon'; pillText='H-'+diff; ringNum=diff; ringUnit='hari';
     } else {
-      ringClass='r-ok'; pillClass='p-ok'; pillText=diff+' hari lagi';
+      ringClass='r-ok'; pillClass='p-ok'; pillText=diff+' hari lagi'; ringNum=diff; ringUnit='hari';
     }
 
     const div = document.createElement('div');
@@ -277,8 +278,8 @@ function render(){
     div.innerHTML = `
       <div class="card-top">
         <div class="ring ${ringClass}">
-          <div class="n">${paid ? '✓' : diff}</div>
-          <div class="u">${paid ? '' : 'hari'}</div>
+          <div class="n">${ringNum}</div>
+          <div class="u">${ringUnit}</div>
         </div>
         <div class="card-info">
           <div class="card-name">${card.name}</div>
