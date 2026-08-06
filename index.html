@@ -1,4 +1,3 @@
-html
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -62,6 +61,7 @@ html
   .card-amt{text-align:right;}
   .card-amt .big{font-family:'Fraunces',serif; font-weight:600; font-size:16px;}
   .card-amt .small{font-size:11px; color:var(--ink-soft);}
+  .detail-link{font-size:11px; color:var(--ink); text-decoration:underline; margin-top:4px; cursor:pointer;}
   .status-pill{
     display:inline-block; font-size:10px; font-weight:600; padding:2px 8px; border-radius:20px;
     text-transform:uppercase; letter-spacing:0.03em; margin-top:6px;
@@ -78,6 +78,7 @@ html
   .actions button:active{background:var(--paper);}
   .actions .pay{color:var(--green);}
   .actions .cal{color:var(--ink);}
+  .actions .upd{color:var(--amber);}
   .actions .del{color:var(--red);}
   .fab{
     position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
@@ -111,6 +112,15 @@ html
   .btn-save{background:var(--ink); color:#fff;}
   .empty{text-align:center; padding:60px 20px; color:var(--ink-soft);}
   .empty .em-title{font-family:'Fraunces',serif; font-size:18px; color:var(--ink); margin-bottom:6px;}
+  .detail-row{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:10px 0; border-bottom:1px solid var(--line);
+  }
+  .detail-row:last-child{border-bottom:none;}
+  .detail-row .d-date{font-size:13px; color:var(--ink-soft);}
+  .detail-row .d-amt{font-family:'Fraunces',serif; font-weight:600; font-size:15px;}
+  .detail-row .d-del{color:var(--red); font-size:12px; cursor:pointer; margin-left:12px; text-decoration:underline;}
+  .detail-total{display:flex; justify-content:space-between; padding-top:10px; margin-top:4px; font-weight:600;}
 </style>
 </head>
 <body>
@@ -151,7 +161,7 @@ html
     </div>
     <div class="row2">
       <div class="field">
-        <label>Tanggal jatuh tempo</label>
+        <label>Jatuh tempo bulan ini</label>
         <input type="date" id="f-dueday">
       </div>
       <div class="field">
@@ -184,9 +194,42 @@ html
   </div>
 </div>
 
+<div class="overlay" id="update-overlay">
+  <div class="sheet">
+    <h2>Update tagihan bulan ini</h2>
+    <div class="field">
+      <label>Tanggal jatuh tempo bulan ini</label>
+      <input type="date" id="u-duedate">
+    </div>
+    <div class="field">
+      <label>Jumlah tagihan (Rp)</label>
+      <input type="number" id="u-bill" placeholder="2500000">
+    </div>
+    <div class="field">
+      <label>Minimum pembayaran (Rp)</label>
+      <input type="number" id="u-min" placeholder="250000">
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" onclick="closeUpdateOverlay()">Batal</button>
+      <button class="btn-save" onclick="submitUpdate()">Simpan &amp; Reset</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="detail-overlay">
+  <div class="sheet">
+    <h2>Rincian pembayaran</h2>
+    <div id="detail-list"></div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" onclick="closeDetailOverlay()">Tutup</button>
+    </div>
+  </div>
+</div>
+
 <script>
 let cards = [];
 let editingPayId = null;
+let editingUpdateId = null;
 
 function fmt(n){
   return 'Rp' + Math.round(n).toLocaleString('id-ID');
@@ -210,13 +253,17 @@ async function persist(){
   }
 }
 
-function daysUntilDue(dueDay){
+function daysUntilDue(dueDateStr){
+  const due = new Date(dueDateStr + 'T00:00:00');
   const now = new Date();
-  const y = now.getFullYear(), m = now.getMonth(), d = now.getDate();
-  const due = new Date(y, m, dueDay);
-  const today = new Date(y, m, d);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const diff = Math.round((due - today) / (1000*60*60*24));
   return {due, diff};
+}
+
+function fmtDate(dueDateStr){
+  const due = new Date(dueDateStr + 'T00:00:00');
+  return due.toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'});
 }
 
 function currentCycleKey(){
@@ -248,12 +295,12 @@ function render(){
   let unpaidCount = 0, totalUnpaid = 0;
 
   const sorted = [...cards].sort((a,b)=>{
-    const da = daysUntilDue(a.dueDay).diff, db = daysUntilDue(b.dueDay).diff;
+    const da = daysUntilDue(a.dueDate).diff, db = daysUntilDue(b.dueDate).diff;
     return da - db;
   });
 
   sorted.forEach(card=>{
-    const {diff} = daysUntilDue(card.dueDay);
+    const {diff} = daysUntilDue(card.dueDate);
     const paid = isPaidThisCycle(card);
     const pd = paidAmount(card);
     const remaining = Math.max(card.billAmount - pd, 0);
@@ -283,17 +330,19 @@ function render(){
         </div>
         <div class="card-info">
           <div class="card-name">${card.name}</div>
-          <div class="card-meta">Jatuh tempo tgl ${card.dueDay} · min ${fmt(card.minAmount||0)}</div>
+          <div class="card-meta">Jatuh tempo ${fmtDate(card.dueDate)} · min ${fmt(card.minAmount||0)}</div>
           <span class="status-pill ${pillClass}">${pillText}</span>
         </div>
         <div class="card-amt">
           <div class="big">${fmt(remaining)}</div>
-          <div class="small">${pd>0 ? 'dibayar '+fmt(pd) : 'dari '+fmt(card.billAmount)}</div>
+          <div class="small">${pd>0 ? 'dibayar '+fmt(pd)+' dari '+fmt(card.billAmount) : 'dari '+fmt(card.billAmount)}</div>
+          ${(card.payments&&card.payments.length>0) ? `<div class="detail-link" onclick="openDetailOverlay('${card.id}')">Rincian (${card.payments.length})</div>` : ''}
         </div>
       </div>
       <div class="actions">
         <button class="pay" onclick="openPayOverlay('${card.id}')">Catat bayar</button>
         <button class="cal" onclick="addToCalendar('${card.id}')">Kalender</button>
+        <button class="upd" onclick="openUpdateOverlay('${card.id}')">Update</button>
         <button class="del" onclick="deleteCard('${card.id}')">Hapus</button>
       </div>
     `;
@@ -326,11 +375,9 @@ async function saveCard(){
     return;
   }
 
-  const dueDay = parseInt(dueDateStr.split('-')[2]);
-
   cards.push({
     id: Date.now().toString(),
-    name, dueDay, billAmount: bill, minAmount: min,
+    name, dueDate: dueDateStr, billAmount: bill, minAmount: min,
     payments: []
   });
   await persist();
@@ -367,12 +414,78 @@ async function submitPayment(){
   render();
 }
 
+function openUpdateOverlay(id){
+  editingUpdateId = id;
+  const card = cards.find(c=>c.id===id);
+  if(!card) return;
+  document.getElementById('u-duedate').value = card.dueDate;
+  document.getElementById('u-bill').value = card.billAmount;
+  document.getElementById('u-min').value = card.minAmount;
+  document.getElementById('update-overlay').classList.add('show');
+}
+function closeUpdateOverlay(){
+  document.getElementById('update-overlay').classList.remove('show');
+  editingUpdateId = null;
+}
+async function submitUpdate(){
+  const dueDateStr = document.getElementById('u-duedate').value;
+  const bill = parseFloat(document.getElementById('u-bill').value) || 0;
+  const min = parseFloat(document.getElementById('u-min').value) || 0;
+  if(!dueDateStr){ alert('Isi tanggal jatuh tempo dulu ya.'); return; }
+  const card = cards.find(c=>c.id===editingUpdateId);
+  if(card){
+    card.dueDate = dueDateStr;
+    card.billAmount = bill;
+    card.minAmount = min;
+    card.payments = [];
+    await persist();
+  }
+  closeUpdateOverlay();
+  render();
+}
+
+let editingDetailId = null;
+
+function openDetailOverlay(id){
+  editingDetailId = id;
+  const card = cards.find(c=>c.id===id);
+  if(!card) return;
+  const list = document.getElementById('detail-list');
+  const payments = card.payments || [];
+  list.innerHTML = payments.map((p, idx)=>`
+    <div class="detail-row">
+      <div>
+        <div class="d-amt">${fmt(p.amount)}</div>
+        <div class="d-date">${new Date(p.date).toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'})}</div>
+      </div>
+      <div class="d-del" onclick="deletePayment('${id}', ${idx})">Hapus</div>
+    </div>
+  `).join('') + `
+    <div class="detail-total">
+      <span>Total dibayar</span>
+      <span>${fmt(paidAmount(card))}</span>
+    </div>
+  `;
+  document.getElementById('detail-overlay').classList.add('show');
+}
+function closeDetailOverlay(){
+  document.getElementById('detail-overlay').classList.remove('show');
+  editingDetailId = null;
+}
+async function deletePayment(id, idx){
+  const card = cards.find(c=>c.id===id);
+  if(!card) return;
+  card.payments.splice(idx, 1);
+  await persist();
+  openDetailOverlay(id);
+  render();
+}
+
 function addToCalendar(id){
   const card = cards.find(c=>c.id===id);
   if(!card) return;
-  const {due} = daysUntilDue(card.dueDay);
-  const dateStr = due.toISOString().slice(0,10).replace(/-/g,'');
-  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent('Bayar tagihan '+card.name)}&dates=${dateStr}/${dateStr}&recur=RRULE:FREQ=MONTHLY&details=${encodeURIComponent('Jatuh tempo tanggal '+card.dueDay+', minimum '+fmt(card.minAmount||0))}`;
+  const dateStr = card.dueDate.replace(/-/g,'');
+  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent('Bayar tagihan '+card.name)}&dates=${dateStr}/${dateStr}&details=${encodeURIComponent('Jatuh tempo '+fmtDate(card.dueDate)+', minimum '+fmt(card.minAmount||0))}`;
   window.open(url, '_blank');
 }
 
