@@ -151,7 +151,7 @@
     <div class="row2">
       <div class="field">
         <label>Tanggal jatuh tempo</label>
-        <input type="number" id="f-dueday" min="1" max="31" placeholder="15">
+        <input type="date" id="f-dueday">
       </div>
       <div class="field">
         <label>Jumlah tagihan (Rp)</label>
@@ -316,14 +316,16 @@ function closeSheet(){
 
 async function saveCard(){
   const name = document.getElementById('f-name').value.trim();
-  const dueDay = parseInt(document.getElementById('f-dueday').value);
+  const dueDateStr = document.getElementById('f-dueday').value;
   const bill = parseFloat(document.getElementById('f-bill').value) || 0;
   const min = parseFloat(document.getElementById('f-min').value) || 0;
 
-  if(!name || !dueDay || dueDay < 1 || dueDay > 31){
-    alert('Isi nama kartu dan tanggal jatuh tempo (1-31) dulu ya.');
+  if(!name || !dueDateStr){
+    alert('Isi nama kartu dan tanggal jatuh tempo dulu ya.');
     return;
   }
+
+  const dueDay = parseInt(dueDateStr.split('-')[2]);
 
   cards.push({
     id: Date.now().toString(),
