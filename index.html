@@ -239,6 +239,18 @@ async function loadCards(){
   try{
     const raw = localStorage.getItem('cardremind_cards_v1');
     cards = raw ? JSON.parse(raw) : [];
+    let migrated = false;
+    cards.forEach(c=>{
+      if(!c.dueDate && c.dueDay){
+        const now = new Date();
+        const y = now.getFullYear(), m = now.getMonth();
+        const dt = new Date(y, m, c.dueDay);
+        c.dueDate = dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+        delete c.dueDay;
+        migrated = true;
+      }
+    });
+    if(migrated) await persist();
   }catch(e){
     cards = [];
   }
@@ -254,7 +266,9 @@ async function persist(){
 }
 
 function daysUntilDue(dueDateStr){
+  if(!dueDateStr) return {due:null, diff:9999};
   const due = new Date(dueDateStr + 'T00:00:00');
+  if(isNaN(due)) return {due:null, diff:9999};
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const diff = Math.round((due - today) / (1000*60*60*24));
@@ -262,7 +276,9 @@ function daysUntilDue(dueDateStr){
 }
 
 function fmtDate(dueDateStr){
+  if(!dueDateStr) return '-';
   const due = new Date(dueDateStr + 'T00:00:00');
+  if(isNaN(due)) return '-';
   return due.toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'});
 }
 
