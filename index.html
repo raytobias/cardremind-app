@@ -56,12 +56,13 @@
   .r-ok{border-color:var(--gray); color:var(--gray); background:#F1EFE8;}
   .r-paid{border-color:var(--green); color:var(--green); background:var(--green-bg);}
   .card-info{flex:1; min-width:0;}
-  .card-name{font-weight:600; font-size:15px;}
-  .card-meta{font-size:12px; color:var(--ink-soft); margin-top:2px;}
-  .card-amt{text-align:right;}
-  .card-amt .big{font-family:'Fraunces',serif; font-weight:600; font-size:16px;}
-  .card-amt .small{font-size:11px; color:var(--ink-soft);}
-  .detail-link{font-size:11px; color:var(--ink); text-decoration:underline; margin-top:4px; cursor:pointer;}
+  .card-name{font-weight:600; font-size:16px;}
+  .card-body{margin-top:12px;}
+  .card-meta{font-size:12px; color:var(--ink-soft); margin-bottom:8px;}
+  .card-amt{text-align:left;}
+  .card-amt .big{font-family:'Fraunces',serif; font-weight:600; font-size:20px;}
+  .card-amt .small{font-size:12px; color:var(--ink-soft); margin-top:2px;}
+  .detail-link{font-size:11px; color:var(--ink); text-decoration:underline; margin-top:6px; cursor:pointer; display:inline-block;}
   .status-pill{
     display:inline-block; font-size:10px; font-weight:600; padding:2px 8px; border-radius:20px;
     text-transform:uppercase; letter-spacing:0.03em; margin-top:6px;
@@ -346,9 +347,11 @@ function render(){
         </div>
         <div class="card-info">
           <div class="card-name">${card.name}</div>
-          <div class="card-meta">Jatuh tempo ${fmtDate(card.dueDate)} · min ${fmt(card.minAmount||0)}</div>
           <span class="status-pill ${pillClass}">${pillText}</span>
         </div>
+      </div>
+      <div class="card-body">
+        <div class="card-meta">Jatuh tempo ${fmtDate(card.dueDate)} &middot; min ${fmt(card.minAmount||0)}</div>
         <div class="card-amt">
           <div class="big">${fmt(remaining)}</div>
           <div class="small">${pd>0 ? 'dibayar '+fmt(pd)+' dari '+fmt(card.billAmount) : 'dari '+fmt(card.billAmount)}</div>
